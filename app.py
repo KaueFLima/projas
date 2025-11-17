@@ -73,10 +73,21 @@ def complaints():
     complaints = sorted(load_complaints(), key=lambda x: x['created_at'], reverse=True)
     return render_template('complaints.html', complaints=complaints)
 
-
 @app.route('/api/complaints')
 def api_complaints():
     return jsonify(load_complaints())
+
+@app.route("/report")
+def relatorio():
+
+    '''
+    Página de relatório de análise de sentimento.
+    Renderiza o arquivo 'templates/report.html'.
+    '''
+    
+
+    return render_template("relatorio.html")
+
 
 
 # -----------------------------
