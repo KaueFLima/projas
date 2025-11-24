@@ -1,4 +1,3 @@
-
 import pandas as pd
 from transformers import pipeline
 from datetime import datetime
@@ -20,12 +19,12 @@ import emoji
 
 # --- Configurações ---
 ## Arquivo CSV retirado localmente
-NOME_ARQUIVO_CSV = 'analise_sentimento_alimentos_emoji.csv'
-COLUNA_AVALIACOES = 'Comentário_Consumidor'
+NOME_ARQUIVO_CSV = 'quotes.csv'
+COLUNA_AVALIACOES ='Texto'
 
 """ ## Retirada do arquivo pelo Google Drive
 NOME_ARQUIVO_CSV = '/content/drive/MyDrive/quotes2.csv'  # Troque pelo nome real do seu arquivo
-COLUNA_AVALIACOES = 'Quote'         # Troque pelo nome real da coluna com o texto
+COLUNA_AVALIACOES = 'Quote'     # Troque pelo nome real da coluna com o texto
 """
 
 # --- Geração Dinâmica do Nome do Arquivo PDF ---
@@ -39,7 +38,7 @@ timestamp = agora_com_fuso.strftime("%d-%m-%Y_%H-%M")
 NOME_ARQUIVO_PDF = f'relatorio_sentimento_{timestamp}.pdf'
 
 # --- Configurações da Logomarca ---
-CAMINHO_LOGOMARCA = 'logo_soulcare.jpeg'  # Atualize com o caminho correto da logomarca
+CAMINHO_LOGOMARCA = 'logo_soulcare.png'  # Atualize com o caminho correto da logomarca
 
 """ ----- Logomarca online (Google Drive) -----
 CAMINHO_LOGOMARCA = '/content/drive/MyDrive/cachorro.jpeg' #Alterado / carlos
@@ -61,8 +60,8 @@ FONTE_PADRAO_NEGRITO = 'Helvetica-Bold'
 """
 
 CAMINHO_FONTE_EMOJI = 'DejaVuSans.ttf'
-FONTE_PADRAO = 'Helvetica'
-FONTE_PADRAO_NEGRITO = 'Helvetica-Bold'
+FONTE_PADRAO = 'DejaVuSans'
+FONTE_PADRAO_NEGRITO = 'DejaVuSans-Bold'
 
 try:
     if os.path.exists(CAMINHO_FONTE_EMOJI):
@@ -107,15 +106,31 @@ print("Modelo de EMOJI carregado.")
 
 # 1. Leitura do Arquivo CSV
 try:
-    df = pd.read_csv(NOME_ARQUIVO_CSV, engine='python', on_bad_lines='skip', sep=None)
+    # Lendo de forma robusta: forçando separador (vírgula) e codificação (UTF-8)
+    df = pd.read_csv(NOME_ARQUIVO_CSV, sep=',', encoding='utf-8', on_bad_lines='skip', engine='python')
+    
+    # Adiciona a limpeza dos nomes das colunas: remove espaços em branco (antes ou depois)
+    df.columns = df.columns.str.strip() 
+
+    # Tratamento de valores nulos (NaN) para evitar a string 'nan' no relatório final
+    # Preenche qualquer célula vazia na coluna de comentários com um espaço em branco
+    df[COLUNA_AVALIACOES] = df[COLUNA_AVALIACOES].fillna('')
+
+    # Certifique-se de que a coluna existe após a limpeza
+    if COLUNA_AVALIACOES not in df.columns:
+        raise KeyError(f"A coluna esperada '{COLUNA_AVALIACOES}' não foi encontrada no CSV.")
+
     texts_to_analyze = df[COLUNA_AVALIACOES].astype(str).tolist()
     print(f"Arquivo '{NOME_ARQUIVO_CSV}' lido com sucesso. Total de {len(df)} avaliações.")
+    
 except FileNotFoundError:
     print(f"ERRO: Arquivo '{NOME_ARQUIVO_CSV}' não encontrado.")
     exit()
 except KeyError:
     print(f"ERRO: A coluna '{COLUNA_AVALIACOES}' não foi encontrada no arquivo CSV.")
+    print(f"Colunas disponíveis: {df.columns.tolist()}")
     exit()
+
 
 # 2. Aplicação da Análise de Sentimento (AMBOS OS MODELOS)
 print("Iniciando a análise de sentimento com AMBOS os modelos...")
@@ -170,7 +185,6 @@ df = pd.concat([
     df_res_texto[['Sentimento_Texto', 'Estrelas_Texto', 'Confianca_Texto']],
     df_res_emoji[['Sentimento_Emoji', 'Estrelas_Emoji', 'Confianca_Emoji']]
 ], axis=1)
-
 
 # ###############################################################
 # --- NOVA LÓGICA DE DECISÃO (Texto Prioritário, Emoji Auxiliar APENAS SE EMOJI > LETRAS) ---
@@ -233,7 +247,7 @@ def myFirstPage(canvas, doc):
     # Configurando e desenhando a logomarca no cabeçalho
     try:
         header_picture = Image(CAMINHO_LOGOMARCA, width=50, height=50)
-        header_picture.drawOn(canvas, doc.leftMargin, page_height - 0.75 * inch)  # Posiciona a logo
+        header_picture.drawOn(canvas, page_width - doc.rightMargin - 50, page_height - 0.75 * inch)  # Posiciona a logo
     except Exception as e:
         print(f"Aviso: Não foi possível carregar a logo no cabeçalho: {e}")
     
@@ -242,7 +256,7 @@ def myFirstPage(canvas, doc):
     canvas.setFont(FONTE_PADRAO, 8)
     #footer_text = "Página %d" % doc.page ## O numero da página no rodapé não exibe
     footer_lines = ["R. Dois, 2877 - Vila Operaria, Rio Claro - SP, 13504-090",  
-    "e-mail: soulcare.fatecrc@gmail.com"] #endereço no rodapé
+    "e-mail: soulcare.fatec-rc@gmail.com"] #endereço no rodapé
     ## footer_text = "Página %d" % doc.page, f"R. Dois, 2877 - Vila Operaria, Rio Claro - SP, 13504-090"
     for i, line in enumerate(footer_lines):
         canvas.drawCentredString(page_width / 2, 0.5 * inch - i * 10, line)
@@ -279,20 +293,10 @@ styles['Title'].fontName = FONTE_PADRAO
 styles['h2'].fontName = FONTE_PADRAO
 styles['Normal'].fontName = FONTE_PADRAO
 
-""""
-try:
-    logomarca = Image(CAMINHO_LOGOMARCA, width=LARGURA_LOGOMARCA, height=ALTURA_LOGOMARCA)
-    logomarca.hAlign = 'RIGHT'
-    elements.append(logomarca)
-    elements.append(Spacer(1, 6))
-except Exception as e:
-    print(f"AVISO: Erro ao carregar a logomarca: {e}")"""
+
 
 # Título do Relatório (atualizado)
 elements.append(Paragraph("Relatório de análise de sentimento", styles['Title']))
-# elements.append(Paragraph("Relatório de Análise de Sentimento (Híbrido)", styles['Title']))
-# elements.append(Paragraph(f"Modelo de Texto: {MODELO_TEXTO_NOME}", styles['Normal'])) ## ocultando essa informação
-# elements.append(Paragraph(f"Modelo de Emoji: {MODELO_EMOJI_NOME}", styles['Normal'])) ## ocultando essa informação
 elements.append(Paragraph(f"Total de avaliações analisadas: {len(df)}", styles['Normal']))
 elements.append(Spacer(1, 12))
 
@@ -335,7 +339,7 @@ pie.slices.popout = 5
 color_map = {
     'Positivo': colors.darkgreen,
     'Negativo': colors.darkred,
-    'Neutro': colors.darkgray
+    'Neutro': colors.darkblue
 }
 for i, label in enumerate(contagem_absoluta.index):
     pie.slices[i].fillColor = color_map.get(label, colors.grey)
@@ -358,9 +362,6 @@ resumo_grafico_table.hAlign = 'CENTER'  # Centraliza a tabela na página
 drawing.add(pie)
 drawing.add(legend)
 
-
-
-
 # Também vamos centralizar o título
 styles['h2'].alignment = 1  # 1 = TA_CENTER (centralizado)
 
@@ -371,67 +372,102 @@ elements.append(Spacer(1, 24))
 
 elements.append(PageBreak()) # Quebra de página antes da tabela detalhada
 
-# --- Tabela Detalhada (MODIFICADA para incluir a coluna 'Modelo_Escolhido') --
+# --- Estilos Comuns para as Novas Tabelas ---
 comment_style = ParagraphStyle(
     name='CommentStyle',
     parent=styles['Normal'],
-    fontName=FONTE_PADRAO,
+    fontName = FONTE_PADRAO,
     fontSize=7,
     leading=9,
     alignment=TA_LEFT,
 )
 
-# Seleciona as colunas para o PDF, incluindo a nova 'Modelo_Escolhido'
-# df_pdf = df[[COLUNA_AVALIACOES, 'Sentimento', 'Estrelas_Preditas', 'Confianca', 'Modelo_Escolhido']]
-df_pdf = df[[COLUNA_AVALIACOES, 'Sentimento', 'Estrelas_Preditas', 'Confianca']]
-
-# Define os estilos dos Parágrafos
+# Define os estilos dos Parágrafos para o cabeçalho
 header_style = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontName=FONTE_PADRAO_NEGRITO, fontSize=8, alignment=TA_CENTER)
-cell_style = ParagraphStyle(name='CellStyle', parent=styles['Normal'], fontName=FONTE_PADRAO, fontSize=7, alignment=TA_CENTER)
-center_cell_style = ParagraphStyle(name='CenterCellStyle', parent=cell_style, alignment=TA_CENTER)
+center_cell_style = ParagraphStyle(name='CenterCellStyle', parent=styles['Normal'], fontName=FONTE_PADRAO, fontSize=7, alignment=TA_CENTER)
+cell_style = ParagraphStyle(name='CellStyle', parent=styles['Normal'], fontName=FONTE_PADRAO, fontSize=7, alignment=TA_LEFT)
 
-# Cabeçalho (Modificado)
+# Cabeçalho da Tabela
 header = [
     Paragraph(COLUNA_AVALIACOES, header_style),
-    Paragraph('Sentimento', header_style),
     Paragraph('Estrelas', header_style),
     Paragraph('Confiança', header_style),
-    #Paragraph('Modelo Usado', header_style) # Nova Coluna
 ]
 
-data_rows = []
-for row in df_pdf.values.tolist():
-    comment_text = str(row[0])
-    comment = Paragraph(comment_text, comment_style) # Suporta emojis
-
-    data_rows.append([
-        comment,
-        Paragraph(str(row[1]), cell_style),
-        Paragraph(str(row[2]), center_cell_style),
-        Paragraph(f"{float(row[3]):.2f}", center_cell_style),
-        #Paragraph(str(row[4]), cell_style) # Nova Coluna
-    ])
-
-data_list = [header] + data_rows
-
-# Define as larguras das colunas (Modificado)
+# Define as larguras das colunas (agora são 3 colunas)
 doc_width = A4[0] - 2 * doc.leftMargin
-# col_widths = [doc_width * 0.40, doc_width * 0.15, doc_width * 0.10, doc_width * 0.10, doc_width * 0.25]
-col_widths = [doc_width * 0.40, doc_width * 0.15, doc_width * 0.10, doc_width * 0.15,]
+col_widths = [doc_width * 0.70, doc_width * 0.15, doc_width * 0.15]
 
-table = Table(data_list, colWidths=col_widths)
+def gerar_tabela_detalhada_por_sentimento(df_filtrado, titulo, cor_fundo):
+    """Função para gerar uma tabela detalhada para um sentimento específico."""
+    
+    if df_filtrado.empty:
+        elements.append(Paragraph(f"**{titulo}**", styles['h2']))
+        elements.append(Paragraph(f"Nenhuma avaliação encontrada com sentimento: {titulo.split(' ')[-1]}", styles['Normal']))
+        elements.append(Spacer(1, 12))
+        return
 
-style = TableStyle([
-    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E90FF')),
-    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-])
-table.setStyle(style)
+    elements.append(Paragraph(titulo, styles['h2']))
+    elements.append(Spacer(1, 6))
 
-elements.append(Paragraph("Detalhes da Análise por Avaliação", styles['h2']))
-elements.append(table)
+    # Seleciona as colunas para o PDF
+    df_pdf = df_filtrado[[COLUNA_AVALIACOES, 'Estrelas_Preditas', 'Confianca']]
+
+    data_rows = []
+    for row in df_pdf.values.tolist():
+        comment_text = str(row[0])
+        comment = Paragraph(comment_text, comment_style) # Suporta emojis
+
+        data_rows.append([
+            comment,
+            Paragraph(str(row[1]), center_cell_style),
+            Paragraph(f"{float(row[2]):.2f}", center_cell_style),
+        ])
+
+    data_list = [header] + data_rows
+
+    table = Table(data_list, colWidths=col_widths)
+
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), cor_fundo),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'), # Centraliza as colunas de Estrelas e Confiança
+    ])
+    table.setStyle(style)
+
+    elements.append(table)
+    elements.append(Spacer(1, 24))
+
+# --- Geração das Três Tabelas ---
+
+# 1. Comentários Positivos
+df_positivo = df[df['Sentimento'] == 'Positivo'].copy()
+gerar_tabela_detalhada_por_sentimento(
+    df_positivo,
+    "Avaliações com Sentimento Positivo",
+    colors.darkgreen
+)
+elements.append(PageBreak())
+
+# 2. Comentários Neutros
+df_neutro = df[df['Sentimento'] == 'Neutro'].copy()
+gerar_tabela_detalhada_por_sentimento(
+    df_neutro,
+    "Avaliações com Sentimento Neutro",
+    colors.darkblue
+)
+elements.append(PageBreak())
+
+# 3. Comentários Negativos
+df_negativo = df[df['Sentimento'] == 'Negativo'].copy()
+gerar_tabela_detalhada_por_sentimento(
+    df_negativo,
+    "Avaliações com Sentimento Negativo",
+    colors.darkred
+)
 
 # Constrói o PDF
 try:
@@ -444,4 +480,4 @@ try:
 except Exception as e:
     print(f"\n--- ERRO AO GERAR O PDF ---")
     print(f"ERRO: {e}")
-    print("Verifique se o arquivo 'DejaVuSans.ttf' está no local correto no seu Google Drive.")
+    print("Verifique se o arquivo 'DejaVuSans.ttf' está no local correto.")

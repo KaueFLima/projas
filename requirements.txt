@@ -1,17 +1,21 @@
-# Bibliotecas do Core da Aplicação Web (app.py)
+# Core da Aplicação Web
 Flask
-python-dotenv  # Boa prática para gerenciar FLASK_SECRET_KEY, embora não esteja explícito, é útil.
+gunicorn
+python-dotenv
 
-# Bibliotecas de Web Scraping (Web Scraping.py)
+# Web Scraping
 requests
 beautifulsoup4
 
-# Bibliotecas de Análise de Dados e Sentimento (entrada_saida_grafico_.py)
+# Análise de Dados e Sentimento
 pandas
-transformers
+transformers==4.37.2
 emoji
 
-# Bibliotecas de Geração de Relatório em PDF (entrada_saida_grafico_.py)
+# Torch CPU-Only (compatível com Python 3.13 no Railway)
+torch==2.9.1+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Geração de PDF
 reportlab
-Pillow  # Para a função Image (logomarca)
-zoneinfo # Para datetime com fuso horário (necessário em alguns ambientes)
+Pillow
